@@ -1,5 +1,4 @@
 // #define store(row,col) (DIRECTIONS*(row)+(col))
-#define DATA_SIZE WIDTH*LENGTH
 
 __kernel void update(__global float8* from, __global float8* to, 
     __global int* dist, __constant float8* omega)
@@ -30,9 +29,9 @@ __kernel void heights(__global float4* rbuffer, __global float8* f)
     //     energy = f[store(ry,rx,k)];
     //     height += energy.s0+energy.s1+energy.s2+energy.s3+energy.s4+energy.s5+energy.s6+energy.s7;
     // }
-    rbuffer[index].x = SCALE*((float)rx/(float)WIDTH)-(SCALE/2.0f);
+    rbuffer[index].x = SCALE*((float)rx/(float)(WIDTH-1))-(SCALE/2.0f);
     rbuffer[index].y = height;
-    rbuffer[index].z = SCALE*((float)ry/(float)LENGTH)-(SCALE/2.0f);
+    rbuffer[index].z = SCALE*((float)ry/(float)(LENGTH-1))-(SCALE/2.0f);
     rbuffer[index].w = 1.0f;
 }
 
@@ -48,15 +47,12 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
     nbuffer[index].w = 1.0f;
 }
 
-__kernel void colors(__global float4* rbuffer, __global float4* lightdir,
-    __global float4* viewdir, __global float4* nbuffer)
+__kernel void colors(__global float4* rbuffer, float4 lightdir,
+    float4 viewdir, __global float4* nbuffer)
 {
     int rx = get_global_id(0);
     int ry = get_global_id(1);
-    int i = rx+ry*WIDTH + DATA_SIZE;
+    int i = rx+ry*WIDTH + COLOR_OFFSET;
 
-    rbuffer[i].x = 0.2f;
-    rbuffer[i].y = 0.7f;
-    rbuffer[i].z = 1.0f;
-    rbuffer[i].w = 1.0f;
+    rbuffer[i] = (float4)(0.2f, 0.7f, 1.0f, 1.0f);
 }
