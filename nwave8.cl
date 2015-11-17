@@ -1,4 +1,3 @@
-// #define store(row,col) (DIRECTIONS*(row)+(col))
 
 __kernel void update(__global float8* from, __global float8* to, 
     __global int* dist, __constant float8* omega)
@@ -11,7 +10,7 @@ __kernel void update(__global float8* from, __global float8* to,
     for(k=0;k<DIRECTIONS;k++){
         new_energy = from[store(ry,rx,k)];
         for(n=0;n<DIRECTIONS;n++){
-            new_energy += omega[DIRECTIONS*ry+rx]*from[store(ry,rx,n)];
+            new_energy += omega[DIRECTIONS*k+n]*from[store(ry,rx,n)];
             }
         to[dist(ry,rx,k)] = new_energy;
         }
@@ -24,10 +23,12 @@ __kernel void heights(__global float4* rbuffer, __global float8* f)
     float height=0.0f;
     int rx = get_global_id(0);
     int ry = get_global_id(1);
+
     int index = rx+ry*WIDTH;
+
     for(k=0;k<DIRECTIONS;k++){
         energy = f[store(ry,rx,k)];
-        height += (energy.s0+energy.s1+energy.s2+energy.s3+energy.s4+energy.s5+energy.s6+energy.s7)/8.0f;
+        height += energy.s0+energy.s1+energy.s2+energy.s3+energy.s4+energy.s5+energy.s6+energy.s7;
     }
     rbuffer[index].x = SCALE*((float)rx/(float)(WIDTH-1))-(SCALE/2.0f);
     rbuffer[index].y = height;
@@ -41,6 +42,7 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
     int ry = get_global_id(1);
     int i = rx+ry*WIDTH;
     float y1,y2,y3,y4;
+    float approx_length = ((2*SCALE)/LENGTH);
 
     if(rx==0) { y2=1.0f; }
     else if(rx==(WIDTH-1)){ y1=1.0f; }
@@ -58,18 +60,8 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
         y3=rbuffer[rx+(ry+1)*WIDTH].y;
     }
 
-    // float4 normal;
-
-
-    // y1 = rbuffer[]
-
-    // normal = ((y2-y1), )
-
-
-    nbuffer[i].x = 0.0f;
-    nbuffer[i].y = 1.0f;
-    nbuffer[i].z = 0.0f;
-    nbuffer[i].w = 1.0f;
+    nbuffer[i] = (float4)(((y2-y1))/approx_length, ((2*SCALE)/WIDTH)/approx_length, 
+                 ((LENGTH/WIDTH)*(y4-y1))/approx_length, 1.0f);
 }
 
 __kernel void colors(__global float4* rbuffer, float4 lightdir,
@@ -77,7 +69,18 @@ __kernel void colors(__global float4* rbuffer, float4 lightdir,
 {
     int rx = get_global_id(0);
     int ry = get_global_id(1);
-    int i = rx+ry*WIDTH + COLOR_OFFSET;
+    int color_index = rx+ry*WIDTH + COLOR_OFFSET;
+    int normal_index = rx+ry*WIDTH;
+    float4 dark_water = (float4)(0.05f, 0.05f, 0.2f, 1.0f);
+    float4 light_water = (float4)(0.3f,0.7f,0.8f,1.0f);
+    float4 skycolor = (float4)(1.0f,1.0f,1.0f,1.0f);
+    float4 normal = nbuffer[normal_index];
+    float fresnel = 0.5f;
+    float sea_view = min(0.0f, (float)(dot(normal,viewdir)));
+    float4 color = (dot(lightdir,normal))*(mix(dark_water,light_water,sea_view);//+
+                    //fresnel*skycolor*(pow((1.0f)-sea_view,5.0f));
 
-    rbuffer[i] = (float4)(0.2f, 0.7f, 1.0f, 1.0f);
+
+
+    rbuffer[color_index] = (float4)(0.3f,0.7f,0.8f,1.0f);
 }
