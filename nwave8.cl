@@ -73,14 +73,14 @@ __kernel void colors(__global float4* rbuffer, float4 lightdir,
     int normal_index = rx+ry*WIDTH;
     float4 dark_water = (float4)(0.05f, 0.05f, 0.2f, 1.0f);
     float4 light_water = (float4)(0.3f,0.7f,0.8f,1.0f);
-    float4 skycolor = (float4)(1.0f,1.0f,1.0f,1.0f);
+    float4 skycolor = (float4)(0.6f,0.6f,0.6f,1.0f);
     float4 normal = nbuffer[normal_index];
     float fresnel = 0.5f;
-    float sea_view = min(0.0f, (float)(dot(normal,viewdir)));
-    float4 color = (dot(lightdir,normal))*(mix(dark_water,light_water,sea_view);//+
-                    //fresnel*skycolor*(pow((1.0f)-sea_view,5.0f));
+    float sea_view = (-1.0f)*min(0.0f, (float)(dot(normal,viewdir)));
+    float4 color = (dot(lightdir,normal))*(mix(dark_water,light_water,sea_view))+
+                    fresnel*skycolor*(pow((1.0f)-sea_view,5.0f));
 
 
 
-    rbuffer[color_index] = (float4)(0.3f,0.7f,0.8f,1.0f);
+    rbuffer[color_index] = color;
 }
