@@ -1,3 +1,8 @@
+#define DARK_WATER (float4)(0.05f, 0.05f, 0.2f, 1.0f)
+#define LIGHT_WATER (float4)(0.3f,0.7f,0.8f,1.0f)
+#define SKY_COLOR (float4)(1.0f,1.0f,0.9f,1.0f)
+#define FRESNEL (0.5f)
+
 
 __kernel void update(__global float8* from, __global float8* to, 
     __global int* dist, __constant float8* omega)
@@ -28,7 +33,7 @@ __kernel void heights(__global float4* rbuffer, __global float8* f)
 
     for(k=0;k<DIRECTIONS;k++){
         energy = f[store(ry,rx,k)];
-        height += energy.s0+energy.s1+energy.s2+energy.s3+energy.s4+energy.s5+energy.s6+energy.s7;
+        height += (energy.s0+energy.s1+energy.s2+energy.s3+energy.s4+energy.s5+energy.s6+energy.s7)/SCALE;
     }
     rbuffer[index].x = SCALE*((float)rx/(float)(WIDTH-1))-(SCALE/2.0f);
     rbuffer[index].y = height;
@@ -42,9 +47,10 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
     int ry = get_global_id(1);
     int i = rx+ry*WIDTH;
     float y1,y2,y3,y4;
-    float approx_length = ((2*SCALE)/LENGTH);
+    float4 normal;
 
-    if(rx==0) { y2=1.0f; }
+    // get the y values of adjacent vertices
+    if(rx==0) { y2=0.0f; }
     else if(rx==(WIDTH-1)){ y1=1.0f; }
     else
     { 
@@ -52,7 +58,7 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
         y1=rbuffer[(rx+1)+ry*WIDTH].y;
     }
 
-    if(ry==0) { y4=1.0f; }
+    if(ry==0) { y4=0.0f; }
     else if(ry==(LENGTH-1)) { y3=1.0f; }
     else
     {
@@ -60,8 +66,16 @@ __kernel void normals(__global float4* rbuffer, __global float4* nbuffer)
         y3=rbuffer[rx+(ry+1)*WIDTH].y;
     }
 
-    nbuffer[i] = (float4)(((y2-y1))/approx_length, ((2*SCALE)/WIDTH)/approx_length, 
-                 ((LENGTH/WIDTH)*(y4-y1))/approx_length, 1.0f);
+    // calculate components of normal vector
+    normal=(float4) ((y2-y1), (2*((float)SCALE))/((float)WIDTH),
+           (((float)LENGTH)/((float)WIDTH))*(y4-y1), 1.0f);
+    
+    //make unit length
+    normal/=sqrt(normal.x*normal.x+normal.y*normal.y+normal.z*normal.z);
+
+    nbuffer[i] = normal;
+
+    // nbuffer[i]=(float4)(0.0f,1.0f,0.0f,1.0f);
 }
 
 __kernel void colors(__global float4* rbuffer, float4 lightdir,
@@ -71,16 +85,15 @@ __kernel void colors(__global float4* rbuffer, float4 lightdir,
     int ry = get_global_id(1);
     int color_index = rx+ry*WIDTH + COLOR_OFFSET;
     int normal_index = rx+ry*WIDTH;
-    float4 dark_water = (float4)(0.05f, 0.05f, 0.2f, 1.0f);
-    float4 light_water = (float4)(0.3f,0.7f,0.8f,1.0f);
-    float4 skycolor = (float4)(0.6f,0.6f,0.6f,1.0f);
+    float4 dark_water = DARK_WATER;
+    float4 light_water = LIGHT_WATER;
+    float4 sky_color = SKY_COLOR;
     float4 normal = nbuffer[normal_index];
-    float fresnel = 0.5f;
+    float fresnel = FRESNEL;
     float sea_view = (-1.0f)*min(0.0f, (float)(dot(normal,viewdir)));
+
     float4 color = (dot(lightdir,normal))*(mix(dark_water,light_water,sea_view))+
-                    fresnel*skycolor*(pow((1.0f)-sea_view,5.0f));
-
-
+                    fresnel*sky_color*(pow((1.0f)-sea_view,5.0f));
 
     rbuffer[color_index] = color;
 }
